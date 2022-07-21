@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[scripts]
+lint = "bash -c 'echo autopep8 && autopep8 src -riv --max-line-length=79 && echo flake8 && flake8 && echo pylint && pylint src'"
+
+[packages]
+
+[dev-packages]
+flake8 = "*"
+autopep8 = "*"
+pylint = "*"
+pytest = "*"
+pytest-cov = "*"
+
+[requires]
+python_version = "3"

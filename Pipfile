@@ -7,6 +7,7 @@ name = "pypi"
 lint = "bash -c 'echo autopep8 && autopep8 src -riv --max-line-length=79 && echo flake8 && flake8 && echo pylint && pylint src'"
 
 [packages]
+requests = "*"
 
 [dev-packages]
 flake8 = "*"

@@ -1,5 +1,8 @@
-# Python starter template
-> Template for python with pipenv
+# Forge of Empires Bot
+> Bot written in Python for automating various tasks in Forge of Empires
+
+## Information
+
 
 ## Get Started
 

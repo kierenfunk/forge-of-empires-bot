@@ -224,15 +224,19 @@ def init_game(mid_token):
         print(current['type'], current['id'], current['entity']['cityentity_id'], current['time'], now)
         if current['time'] >= now:
             continue
-        if current['type'] == 'pickupProduction':
-            response = pickup_production([current['id']], state['request_id'])
-            state = response['state']
-            queue.insert(response['queue_items'])
-        if current['type'] == 'startProduction':
-            response = start_production(current['id'], state['request_id'])
-            state = response['state']
-            queue.insert(response['queue_items'])
-        print(state)
-        current = queue.pop()
+        try:
+            if current['type'] == 'pickupProduction':
+                response = pickup_production([current['id']], state['request_id'])
+                state = response['state']
+                queue.insert(response['queue_items'])
+            if current['type'] == 'startProduction':
+                response = start_production(current['id'], state['request_id'])
+                state = response['state']
+                queue.insert(response['queue_items'])
+            print(state)
+            current = queue.pop()
+        except Exception as e:
+            print(f'ERROR: {e} \n RETRYING')
+
 
     return {}

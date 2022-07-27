@@ -1,0 +1,77 @@
+UNLOCK TAVERN ITEM
+[
+    {
+        "__class__": "ServerRequest",
+        "requestData": [
+            false
+        ],
+        "requestClass": "FriendsTavernService",
+        "requestMethod": "unlockChair",
+        "requestId": 15
+    }
+]
+
+GET PROVINCES
+[
+    {
+        "__class__": "ServerRequest",
+        "requestData": [],
+        "requestClass": "CampaignService",
+        "requestMethod": "start",
+        "requestId": 51
+    }
+]
+SCOUT PROVINCE
+[
+    {
+        "__class__": "ServerRequest",
+        "requestData": [
+            [
+                6,
+                7
+            ],
+            960
+        ],
+        "requestClass": "CampaignService",
+        "requestMethod": "moveScoutToProvince",
+        "requestId": 17
+    }
+]
+SPEND FORGEPOINTS
+[
+    {
+        "__class__": "ServerRequest",
+        "requestData": [
+            "brewing",
+            2
+        ],
+        "requestClass": "ResearchService",
+        "requestMethod": "spendForgePoints",
+        "requestId": 15
+    }
+] 
+PAY TECHNOLOGY
+[
+    {
+        "__class__": "ServerRequest",
+        "requestData": [
+            "brewing"
+        ],
+        "requestClass": "ResearchService",
+        "requestMethod": "payTechnology",
+        "requestId": 16
+    }
+]
+
+ACCEPT FRIEND REQUEST
+[
+    {
+        "__class__": "ServerRequest",
+        "requestData": [
+            852472181
+        ],
+        "requestClass": "FriendService",
+        "requestMethod": "acceptInvitation",
+        "requestId": 110
+    }
+]

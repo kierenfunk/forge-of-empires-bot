@@ -4,10 +4,11 @@ verify_ssl = true
 name = "pypi"
 
 [scripts]
-lint = "bash -c 'echo autopep8 && autopep8 src -riv --max-line-length=79 && echo flake8 && flake8 && echo pylint && pylint src'"
+lint = "bash -c 'autopep8 src -riv --max-line-length=79 && flake8 src && pylint src --disable=C0301'"
 
 [packages]
 requests = "*"
+mip = "*"
 
 [dev-packages]
 flake8 = "*"

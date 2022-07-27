@@ -1,18 +1,29 @@
-"""Python starter template testing
 
-"""
-
-from src.foebot.main import main, init_game, sig
-from os import environ
+from src.foebot.main import *
 import json
 
-def test_main():
-    """A generic test
+MID_TOKEN = login()
+SID_TOKEN, GATEWAY_URL = start_game(MID_TOKEN)
+
+def test_login():
+    """Login to forge of empires
 
     """
-    init_game(environ.get("TEST_MID"))
+    assert len(MID_TOKEN) == 40
+
+def test_start_game():
+    '''Initiate game
+
+    '''
+    assert isinstance(SID_TOKEN, str)
+    assert len(SID_TOKEN) == 40
+    assert isinstance(GATEWAY_URL, str)
 
 def test_sig():
+    '''Tests the signature
+    If this fails, the FOE_SECRET needs to be updated
+
+    '''
     body = [
         {
             "__class__": "ServerRequest",
@@ -43,3 +54,12 @@ def test_sig():
     body = json.dumps(body).replace(' ', '')
     result = sig(body, 'Jdal3Q4X33xkRVJHe5XG-0jw')
     assert result == '4cb8c704f6'
+
+def test_startup_service():
+    state, queue_items = execute_task(
+        create_queue_item("StartupService", "getData"), {
+            'sid_token': SID_TOKEN, 'gateway_url': GATEWAY_URL}
+    )
+    assert 'money' in state
+    assert state['money'] > 0
+    assert 'player_id' in state

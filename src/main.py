@@ -1,5 +1,8 @@
+'''Run foebot
 
-from foebot.main import init_game
+'''
+
+from foebot.main import main
 
 if __name__ == "__main__":
-    init_game('')
+    main()

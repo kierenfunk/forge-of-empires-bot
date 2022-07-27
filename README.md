@@ -47,7 +47,7 @@ Copy a new `.env` file:
 cp .env.example .env
 ```
 
-Add username, password and the FOE secret to `.env`:
+Add username and password to `.env`:
 ```env
 USERNAME=your-username
 PASSWORD=your-password

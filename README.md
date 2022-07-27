@@ -36,27 +36,42 @@
 
 With `pipenv`
 ```bash
-pipenv install --dev
+pipenv install
 pipenv shell
 ```
 
-## Usage
+### Usage
 
-First add username and password to `.env`
+Copy a new `.env` file:
 ```bash
+cp .env.example .env
+```
+
+Add username, password and the FOE secret to `.env`:
+```env
 USERNAME=your-username
 PASSWORD=your-password
 ```
 
+Then just run:
+```bash
+python src/main.py
+```
+
 ### *Optional
 
-If you want to run the bot and play the game at the same time, you will need to copy the sid cookie and gateway url into an environment variable.
+If you want to run the bot and play the game at the same time, you will need to copy the sid cookie and gateway url into `.env`.
 ```bash
 GATEWAY_URL=https://en15.forgeofempires.com/game/json?h=xxxxxxxxxxxxxxxxxxxxxxxx
 SID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 ## Testing
+
+Make sure development dependencies are installed:
+```bash
+pipenv install --dev
+```
 
 For linting:
 ```bash

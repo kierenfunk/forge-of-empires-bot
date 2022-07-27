@@ -169,39 +169,26 @@ def handle_entities(entities):
             # pickup resources after certain time period
             queue_items.append(create_queue_item("CityProductionService", "pickupProduction", [
                                [entity['id']]], entity['state']['next_state_transition_at'] + 1))
-        if state_class == 'ProductionFinishedState':
+        elif state_class == 'ProductionFinishedState':
             # pickup resources immediately
             queue_items.append(create_queue_item(
                 "CityProductionService", "pickupProduction", [[entity['id']]]))
-        if state_class == 'IdleState' and entity['type'] in set(['production', 'goods']):
+        elif state_class == 'IdleState' and entity['type'] in set(['production', 'goods']):
             # start production immediately
             queue_items.append(create_queue_item(
                 "CityProductionService", "startProduction", [entity['id'], 1]))
-        if state_class == 'IdleState' and entity['type'] in set(['military']):
+        elif state_class == 'IdleState' and entity['type'] in set(['military']):
             # train new military units
             units = [unit for unit in entity['unitSlots']
                      if 'unlocked' in unit and unit['unlocked'] and unit['unit_id'] == -1]
             if len(units) > 0:
                 queue_items.append(create_queue_item("CityProductionService", "startProduction", [
                                    entity['id'], units[0]['nr'] if 'nr' in units[0] else 0], 0))
-        if state_class == 'ConstructionState' and entity['type'] in set(['production', 'goods']):
+        elif state_class == 'ConstructionState' and entity['type'] in set(['production', 'goods']):
             # start production after building has finished production
             queue_items.append(create_queue_item("CityProductionService", "startProduction", [
                                entity['id'], 1], entity['state']['next_state_transition_at'] + 1))
     return queue_items
-
-
-def refresh_state(resources):
-    '''Wrapper for handling state refreshes
-
-    '''
-    return {
-        'money': resources['money'],
-        'forge_points': resources['strategy_points'],
-        'supplies': resources['supplies'],
-        'population': resources['population'],
-        'total_population': resources['total_population'],
-    }
 
 
 def execute_task(task, state):
@@ -215,14 +202,40 @@ def execute_task(task, state):
     return handle_response(response, state, task)
 
 
+def update_state(response, prev_state):
+    '''Wrapper for handling state updates
+
+    '''
+    # new state instance
+    new_state = dict(prev_state.items())
+
+    for data in response:
+        # refresh state
+        if data['requestMethod'] == 'getPlayerResources' and data['requestClass'] == 'ResourceService':
+            # get resources
+            resources = data['responseData']['resources']
+            new_state = {
+                **new_state,
+                'money': resources['money'],
+                'forge_points': resources['strategy_points'],
+                'supplies': resources['supplies'],
+                'population': resources['population'],
+                'total_population': resources['total_population'],
+            }
+        elif data['requestMethod'] == 'getData' and data['requestClass'] == 'StartupService':
+            # get user data
+            new_state = {**new_state, 'player_id': data['responseData']['user_data']['player_id']}
+
+    return new_state
+
+
 def handle_response(response, state, request):
     '''Response handler, handles everything returned from FOE
 
     '''
 
-    # you need two parses, one for getting game state, the next for getting queue items
-    # parse one
     for data in response:
+        # check for errors and raise Exceptions if necessary
         if '__class__' in data and data['__class__'] == 'Redirect':
             raise FoeBotExpiredSession(data['message'])
         if data['requestMethod'] == request['requestMethod'] and data['requestClass'] == request['requestClass']:
@@ -230,14 +243,8 @@ def handle_response(response, state, request):
             if "__class__" in data['responseData'] and data['responseData']['__class__'] == "Error":
                 raise FoeBotReload(data['responseData']['message'])
 
-        if data['requestMethod'] == 'getPlayerResources' and data['requestClass'] == 'ResourceService':
-            # get resources
-            resources = data['responseData']['resources']
-            state = {**state, **refresh_state(resources)}
-
-        if data['requestMethod'] == 'getData' and data['requestClass'] == 'StartupService':
-            # get user data
-            state = {**state, 'player_id': data['responseData']['user_data']['player_id']}
+    # first update state
+    state = update_state(response, state)
 
     # parse two, create queue items
     queue_items = []

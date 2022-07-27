@@ -1,5 +1,5 @@
 # Forge of Empires Bot
-> Bot written in Python for automating various tasks in Forge of Empires
+> Bot written in Python for automating various tasks in [Forge of Empires](https://en.forgeofempires.com/)
 
 ## Features
 

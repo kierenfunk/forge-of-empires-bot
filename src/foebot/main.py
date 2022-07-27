@@ -229,19 +229,57 @@ def update_state(response, prev_state):
     return new_state
 
 
+def check_response_errors(response, request):
+    '''Check response body for possible errors and raise appropriate exceptions
+
+    '''
+    for data in response:
+        # check for errors and raise Exceptions if necessary
+        if '__class__' in data and data['__class__'] == 'Redirect':
+            # session most probably has expired
+            raise FoeBotExpiredSession(data['message'])
+        if data['requestMethod'] == request['requestMethod'] and data['requestClass'] == request['requestClass']:
+            if "__class__" in data['responseData'] and data['responseData']['__class__'] == "Error":
+                # reload if service returns an Error
+                raise FoeBotReload(data['responseData']['message'])
+        elif data['requestMethod'] == 'collectReward' and data['requestClass'] == 'HiddenRewardService':
+            if data['responseData']['__class__'] == "Error":
+                if data['responseData']['message'] == 'This reward is not available anymore':
+                    raise FoeBotRewardNotAvailable(
+                        data['responseData']['message'])
+                raise FoeBotReload(data['responseData']['message'])
+
+
+def handle_tavern_response(data, player_id):
+    '''Handle response after checking tavern for new rewards
+
+    '''
+    result = []
+    if data[0] == player_id:
+        # if tavern is own tavern
+
+        # log
+        print(
+            datetime.now(),
+            f"Tavern Status: {data[2]} seats filled out of a possible {data[1]}"
+        )
+        if data[1] == data[2]:
+            # if chairs taken matches number of total chairs, collect reward
+            result.append(create_queue_item("FriendsTavernService", "collectReward", 0))
+        # check again in 5 minutes
+        result.append(create_queue_item(
+            'FriendsTavernService',
+            'getSittingPlayersCount',
+            task_time=int(datetime.now().timestamp()) + 5 * 60
+        ))
+    return result
+
+
 def handle_response(response, state, request):
     '''Response handler, handles everything returned from FOE
 
     '''
-
-    for data in response:
-        # check for errors and raise Exceptions if necessary
-        if '__class__' in data and data['__class__'] == 'Redirect':
-            raise FoeBotExpiredSession(data['message'])
-        if data['requestMethod'] == request['requestMethod'] and data['requestClass'] == request['requestClass']:
-            # catch errors
-            if "__class__" in data['responseData'] and data['responseData']['__class__'] == "Error":
-                raise FoeBotReload(data['responseData']['message'])
+    check_response_errors(response, request)
 
     # first update state
     state = update_state(response, state)
@@ -251,35 +289,24 @@ def handle_response(response, state, request):
     for data in response:
 
         if data['requestMethod'] == 'getSittingPlayersCount' and data['requestClass'] == 'FriendsTavernService':
-            # Collect tavern rewards
-            if data['responseData'][0] == state['player_id']:
-                print(
-                    datetime.now(),
-                    f"Tavern Status: {data['responseData'][2]} seats filled out of a possible {data['responseData'][1]}"
-                )
-                if data['responseData'][1] == data['responseData'][2]:
-                    queue_items.append(create_queue_item(
-                        "FriendsTavernService", "collectReward", 0))
-                queue_items.append(create_queue_item(
-                    'FriendsTavernService', 'getSittingPlayersCount', task_time=int(datetime.now().timestamp()) + 5 * 60))
+            # Check tavern for rewards
+            queue_items.extend(
+                handle_tavern_response(data['responseData'], state['player_id'])
+            )
 
-        if data['requestMethod'] == 'collectDailyPoints' and data['requestClass'] == 'CastleSystemService':
-            if data['responseData']['__class__'] == "Error":
-                raise FoeBotReload(data['responseData']['message'])
-
-        if data['requestMethod'] == 'getOverview' and data['requestClass'] == 'CastleSystemService':
+        elif data['requestMethod'] == 'getOverview' and data['requestClass'] == 'CastleSystemService':
+            # collect castle rewards
             queue_items.append(create_queue_item("CastleSystemService", "collectDailyReward",
                                task_time=data['responseData']['dailyRewardCollectionAvailableAt']))
             queue_items.append(create_queue_item("CastleSystemService", "collectDailyPoints",
                                task_time=data['responseData']['dailyPointsCollectionAvailableAt']))
 
-        if data['requestMethod'] in set(['startProduction', "pickupProduction"]) and data['requestClass'] == "CityProductionService":
-            if data['responseData']['__class__'] == "Error":
-                raise FoeBotReload(data['responseData']['message'])
-            queue_items.extend(handle_entities(
-                data['responseData']['updatedEntities']))
+        elif data['requestMethod'] in set(['startProduction', "pickupProduction"]) and data['requestClass'] == "CityProductionService":
+            # handle city buildings collection and production
+            queue_items.extend(handle_entities(data['responseData']['updatedEntities']))
 
-        if data['requestMethod'] == 'getData' and data['requestClass'] == 'StartupService':
+        elif data['requestMethod'] == 'getData' and data['requestClass'] == 'StartupService':
+            # handle city buildings collection and production at startup
             entity_types = set(['residential', 'main_building',
                                'production', 'goods', 'greatbuilding', 'military'])
             queue_items.extend(handle_entities(
@@ -287,21 +314,17 @@ def handle_response(response, state, request):
                     ['entities'] if ent['type'] in entity_types]
             ))
 
-        if data['requestMethod'] == "updatePlayer" and data['requestClass'] == "OtherPlayerService":
+        elif data['requestMethod'] == "updatePlayer" and data['requestClass'] == "OtherPlayerService":
             # update player, after aid
-            for player in data['responseData']:
-                queue_items.append(create_queue_item(
-                    "OtherPlayerService",
-                    "polivateRandomBuilding",
-                    [player['player_id']],
-                    int(datetime.now().timestamp(
-                    )) + player['next_interaction_in'] + 1 if 'next_interaction_in' in player else 0
-                ))
-        if data['requestMethod'] == "polivateRandomBuilding" and data['requestClass'] == "OtherPlayerService":
-            if data['responseData']['__class__'] == 'Error':
-                raise FoeBotReload(data['responseData']['message'])
+            queue_items.extend([create_queue_item(
+                "OtherPlayerService",
+                "polivateRandomBuilding",
+                [player['player_id']],
+                int(datetime.now().timestamp()) + player['next_interaction_in'] + 1 if 'next_interaction_in' in player else 0
+            ) for player in data['responseData']])
 
-        if data['requestMethod'] == "getSocialList" and data['requestClass'] == "OtherPlayerService":
+        elif data['requestMethod'] == "getSocialList" and data['requestClass'] == "OtherPlayerService":
+            # make this into a function
             # auto aid people
             friends = [friend for friend in data['responseData']['friends']
                        if 'is_friend' in friend and 'is_neighbor' not in friend and 'is_self' not in friend]
@@ -318,41 +341,43 @@ def handle_response(response, state, request):
                     )) + player['next_interaction_in'] + 1 if 'next_interaction_in' in player else 0
                 ))
 
-        if data['requestMethod'] == "getOtherTavernStates" and data['requestClass'] == "FriendsTavernService":
-            for player in data['responseData']:
-                # print(player)
-                if 'state' in player and player['state'] in ['notFriend', 'noChair', 'isSitting', 'notUnlocked']:
-                    continue
-                queue_items.append(create_queue_item(
+        elif data['requestMethod'] == "getOtherTavernStates" and data['requestClass'] == "FriendsTavernService":
+            # visit other players taverns
+
+            # Players must satisfy the following condition:
+            #   1. must be friend (notFriend)
+            #   2. must have a chair available in their tavern (noChair)
+            #   3. Must not already be sitting in their tavern (isSitting)
+            #   4. Must have a tavern (notUnlocked)
+            excluded_players = set(['notFriend', 'noChair', 'isSitting', 'notUnlocked'])
+            players = [player for player in data['responseData'] if not ('state' in player and player['state'] in excluded_players)]
+
+            queue_items.extend([
+                create_queue_item(
                     "FriendsTavernService",
                     "getOtherTavern",
                     [player['ownerId']],
                     player['nextVisitTime'] + 1 if 'nextVisitTime' in player else 0
-                ))
+                ) for player in players])
 
-        if data['requestMethod'] == 'collectReward' and data['requestClass'] == 'HiddenRewardService':
-            if data['responseData']['__class__'] == "Error":
-                if data['responseData']['message'] == 'This reward is not available anymore':
-                    raise FoeBotRewardNotAvailable(
-                        data['responseData']['message'])
-                raise FoeBotReload(data['responseData']['message'])
-
-        if data['requestMethod'] == 'collectReward' and data['requestClass'] == 'RewardService':
+        elif data['requestMethod'] == 'collectReward' and data['requestClass'] == 'RewardService':
             response_data = data['responseData'][0][0]
             print(datetime.now(), 'REWARD: ',
                   response_data['description'], 'Collected:', response_data['name'])
 
-        if data['requestMethod'] == 'getOverview' and data['requestClass'] == 'HiddenRewardService':
-            # for finding new rewards
-            if data['responseData']['__class__'] == 'Error':
-                raise FoeBotReload(data['responseData']['message'])
+        elif data['requestMethod'] == 'getOverview' and data['requestClass'] == 'HiddenRewardService':
+            # find new rewards
 
+            # filter expired rewards
+            rewards = [reward for reward in data['responseData']['hiddenRewards'] if reward['expireTime'] > int(datetime.now().timestamp())]
+
+            # collect reward tasks
             queue_items.extend([
-                create_queue_item("HiddenRewardService", "collectReward", [
-                                  reward['hiddenRewardId']], reward['startTime'])
-                for reward in data['responseData']['hiddenRewards']
-                if reward['expireTime'] > int(datetime.now().timestamp())
-            ] + [create_queue_item("HiddenRewardService", "getOverview", task_time=int(datetime.now().timestamp()) + (60 * 60))])
+                create_queue_item("HiddenRewardService", "collectReward", [reward['hiddenRewardId']], reward['startTime'])
+                for reward in rewards
+            ])
+            # check for new rewards in one hour
+            queue_items.append(create_queue_item("HiddenRewardService", "getOverview", task_time=int(datetime.now().timestamp()) + (60 * 60)))
 
     return state, queue_items
 

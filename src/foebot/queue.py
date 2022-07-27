@@ -23,9 +23,12 @@ class Queue():
         '''Insert new tasks into queue
 
         '''
-        if tasks is None:
+        # print(tasks)
+        if tasks is None or len(tasks) <= 0:
             return
         for task in tasks:
+            if isinstance(task, list):
+                print(task)
             ind = 0
             while ind < len(self.queue) and self.queue[ind]['time'] < task['time']:
                 ind += 1
@@ -58,12 +61,14 @@ class Queue():
         self.queue = [
             item for item in self.queue if item["requestMethod"] != 'pickupProduction']
 
+        # partitioning algorithm
         while len(temp) > 0:
+            # find the maximum size for a partition with time distance of block
             a, b, max_a, max_b = 0, 0, 0, 0
             while b < len(temp):
                 if b - a + 1 > max_b - max_a and temp[b]['time'] - temp[a]['time'] < 31:
                     max_a, max_b = a, b + 1
-                if temp[b]['time'] - temp[a]['time'] >= block:  # 10 seconds blocks
+                if temp[b]['time'] - temp[a]['time'] > block:  # 10 seconds blocks
                     a += 1
                 else:
                     b += 1

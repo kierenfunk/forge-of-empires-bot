@@ -78,4 +78,5 @@ class Queue():
                 "requestMethod": "pickupProduction",
                 "requestData": [[id for item in temp[max_a: max_b] for id in item['requestData'][0]]],
             }])
+            # remove items from temp array
             temp = temp[:max_a] + temp[max_b:]

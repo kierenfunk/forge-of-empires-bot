@@ -275,6 +275,33 @@ def handle_tavern_response(data, player_id):
     return result
 
 
+def handle_social_list(data):
+    '''Create queue tasks from list of friends, neighbours and guild members
+
+    '''
+    players = data['friends'] + data['neighbours'] + data['guildMembers']
+    players = [player for player in players
+               if 'is_self' not in player and ('is_friend' in player or 'is_guild_member' in player or 'is_neighour' in player)]
+
+    # filter duplicate players
+    player_id_set = set()
+    unique_players = []
+    for player in players:
+        if player['player_id'] not in player_id_set:
+            player_id_set.add(player['player_id'])
+            unique_players.append(player)
+
+    result = [create_queue_item(
+        "OtherPlayerService",
+        "polivateRandomBuilding",
+        [player['player_id']],
+        int(datetime.now().timestamp(
+        )) + player['next_interaction_in'] + 1 if 'next_interaction_in' in player else 0
+    ) for player in unique_players]
+
+    return result
+
+
 def handle_response(response, state, request):
     '''Response handler, handles everything returned from FOE
 
@@ -324,22 +351,8 @@ def handle_response(response, state, request):
             ) for player in data['responseData']])
 
         elif data['requestMethod'] == "getSocialList" and data['requestClass'] == "OtherPlayerService":
-            # make this into a function
-            # auto aid people
-            friends = [friend for friend in data['responseData']['friends']
-                       if 'is_friend' in friend and 'is_neighbor' not in friend and 'is_self' not in friend]
-            neighbours = [neighbour for neighbour in data['responseData']['neighbours']
-                          if 'is_neighbor' in neighbour and 'is_self' not in neighbour]
-            guild_members = [member for member in data['responseData']['guildMembers']
-                             if 'is_guild_member' in member and 'is_self' not in member]
-            for player in friends + neighbours + guild_members:
-                queue_items.append(create_queue_item(
-                    "OtherPlayerService",
-                    "polivateRandomBuilding",
-                    [player['player_id']],
-                    int(datetime.now().timestamp(
-                    )) + player['next_interaction_in'] + 1 if 'next_interaction_in' in player else 0
-                ))
+            # auto aid friends, neighbours and guild members
+            queue_items.extend(handle_social_list(data['responseData']))
 
         elif data['requestMethod'] == "getOtherTavernStates" and data['requestClass'] == "FriendsTavernService":
             # visit other players taverns

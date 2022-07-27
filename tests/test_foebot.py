@@ -63,3 +63,11 @@ def test_startup_service():
     assert 'money' in state
     assert state['money'] > 0
     assert 'player_id' in state
+
+def test_get_friends():
+    state, queue_items = execute_task(
+        create_queue_item("StartupService", "getData"), {
+            'sid_token': SID_TOKEN, 'gateway_url': GATEWAY_URL}
+    )
+    #for item in queue_items:
+    #    print(item)

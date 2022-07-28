@@ -281,7 +281,7 @@ def handle_social_list(data):
     '''
     players = data['friends'] + data['neighbours'] + data['guildMembers']
     players = [player for player in players
-               if 'is_self' not in player and ('is_friend' in player or 'is_guild_member' in player or 'is_neighour' in player)]
+               if 'is_self' not in player and ('is_friend' in player or 'is_guild_member' in player or 'is_neighbor' in player)]
 
     # filter duplicate players
     player_id_set = set()

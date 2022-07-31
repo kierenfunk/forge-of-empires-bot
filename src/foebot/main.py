@@ -173,7 +173,7 @@ def handle_entities(entities):
             # pickup resources immediately
             queue_items.append(create_queue_item(
                 "CityProductionService", "pickupProduction", [[entity['id']]]))
-        elif state_class == 'IdleState' and entity['type'] in set(['production', 'goods']):
+        elif state_class == 'IdleState' and entity['type'] in set(['production', 'goods', 'cultural_goods_production']):
             # start production immediately
             queue_items.append(create_queue_item(
                 "CityProductionService", "startProduction", [entity['id'], 1]))
@@ -184,7 +184,7 @@ def handle_entities(entities):
             if len(units) > 0:
                 queue_items.append(create_queue_item("CityProductionService", "startProduction", [
                                    entity['id'], units[0]['nr'] if 'nr' in units[0] else 0], 0))
-        elif state_class == 'ConstructionState' and entity['type'] in set(['production', 'goods']):
+        elif state_class == 'ConstructionState' and entity['type'] in set(['production', 'goods', 'cultural_goods_production']):
             # start production after building has finished production
             queue_items.append(create_queue_item("CityProductionService", "startProduction", [
                                entity['id'], 1], entity['state']['next_state_transition_at'] + 1))
@@ -238,6 +238,8 @@ def check_response_errors(response, request):
         if '__class__' in data and data['__class__'] == 'Redirect':
             # session most probably has expired
             raise FoeBotExpiredSession(data['message'])
+
+
         if data['requestMethod'] == request['requestMethod'] and data['requestClass'] == request['requestClass']:
             if "__class__" in data['responseData'] and data['responseData']['__class__'] == "Error":
                 # reload if service returns an Error
@@ -321,6 +323,8 @@ def handle_response(response, state, request):
                 handle_tavern_response(data['responseData'], state['player_id'])
             )
 
+        elif data['requestMethod'] == "getCityMap" and data['requestClass'] == "CityMapService" and 'gridId' in data['responseData'] and data['responseData']['gridId'] == 'cultural_outpost':
+            queue_items.extend(handle_entities(data['responseData']['entities']))
         elif data['requestMethod'] == 'getOverview' and data['requestClass'] == 'CastleSystemService':
             # collect castle rewards
             queue_items.append(create_queue_item("CastleSystemService", "collectDailyReward",
@@ -422,10 +426,13 @@ def init_game(sid_token, gateway_url):
     # print(research.keys())
     # print(json.dumps(research,indent=2))
 
-    return execute_task(
+    state, queue_items = execute_task(
         create_queue_item("StartupService", "getData"), {
             'sid_token': sid_token, 'gateway_url': gateway_url}
     )
+
+    _, tasks = execute_task(create_queue_item("CityMapService", "getCityMap", ["cultural_outpost"]), state)
+    return state, queue_items+tasks
 
 
 def main():

@@ -8,6 +8,7 @@
 - Collects and starts good buildings (goods)
 - Collects residential buildings (coins)
 - Collects the silver from your tavern
+- Collects goods and copper from cultural settlements
 - Sits in your friends tavern
 - Collects hidden rewards
 - Collects daily castle points and rewards

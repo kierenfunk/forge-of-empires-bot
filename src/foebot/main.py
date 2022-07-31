@@ -239,7 +239,6 @@ def check_response_errors(response, request):
             # session most probably has expired
             raise FoeBotExpiredSession(data['message'])
 
-
         if data['requestMethod'] == request['requestMethod'] and data['requestClass'] == request['requestClass']:
             if "__class__" in data['responseData'] and data['responseData']['__class__'] == "Error":
                 # reload if service returns an Error
@@ -432,7 +431,7 @@ def init_game(sid_token, gateway_url):
     )
 
     _, tasks = execute_task(create_queue_item("CityMapService", "getCityMap", ["cultural_outpost"]), state)
-    return state, queue_items+tasks
+    return state, queue_items + tasks
 
 
 def main():

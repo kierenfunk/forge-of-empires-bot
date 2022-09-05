@@ -105,6 +105,7 @@ def start_game(mid_token):
     # get sid token
     session = requests.Session()
     response = session.get(play_now['login_url'])
+    print(response.text)
 
     # get gateway url from response
     gateway_url = re.findall(r'gatewayUrl: \'([\S]*)\',', response.text)[0]
@@ -112,7 +113,20 @@ def start_game(mid_token):
     return session.cookies.get_dict()['sid'], gateway_url
 
 
-def sig(payload, user_key):
+def get_secret():
+    '''Retrieve FOE Secret from game source code
+
+    '''
+    response = requests.get('https://foeen.innogamescdn.com/cache/ForgeHX-3a368f34.js')
+    print(response)
+    secrets = re.findall(r'this\.\_signatureHash\+\"[A-Z\=0-9a-z]{88}\"', response.text)
+    if len(secrets) > 0:
+        secret = secrets[0]
+    else:
+        raise Exception('No secret found')
+    return secret[24:-1]
+
+def sig(payload, user_key, foe_secret):
     '''Generate sigature required for FOE requests signature header
     CONCEPT FROM: https://github.com/m3talstorm/foe-decryption
 
@@ -122,7 +136,7 @@ def sig(payload, user_key):
     returns: signature
     '''
 
-    data = user_key + environ.get("FOE_SECRET") + payload
+    data = user_key + foe_secret + payload
     signature = hashlib.md5(data.encode('utf-8')).hexdigest()[1:11]
     return signature
 
@@ -140,7 +154,7 @@ def req(body, state):
     payload = json.dumps(body).replace(' ', '')
     response = requests.post(gateway_url, headers={
         'cookie': f"sid={state['sid_token']}",
-        'signature': sig(payload, user_key),
+        'signature': sig(payload, user_key, state['foe_secret']),
     }, data=payload).json()
     return response
 
@@ -173,7 +187,10 @@ def handle_entities(entities):
             # pickup resources immediately
             queue_items.append(create_queue_item(
                 "CityProductionService", "pickupProduction", [[entity['id']]]))
-        elif state_class == 'IdleState' and entity['type'] in set(['production', 'goods', 'cultural_goods_production']):
+        elif state_class == 'IdleState' and entity['type'] in set(['production', 'goods', 'cultural_goods_production', 'diplomacy']):
+            if entity['type'] == 'diplomacy' and entity['cityentity_id'] != 'J_Vikings_Diplomacy4':
+                # only certain types of diplomacy buildings in cultural settings can be production
+                continue
             # start production immediately
             queue_items.append(create_queue_item(
                 "CityProductionService", "startProduction", [entity['id'], 1]))
@@ -184,7 +201,7 @@ def handle_entities(entities):
             if len(units) > 0:
                 queue_items.append(create_queue_item("CityProductionService", "startProduction", [
                                    entity['id'], units[0]['nr'] if 'nr' in units[0] else 0], 0))
-        elif state_class == 'ConstructionState' and entity['type'] in set(['production', 'goods', 'cultural_goods_production']):
+        elif state_class == 'ConstructionState' and entity['type'] in set(['production', 'goods', 'cultural_goods_production', 'diplomacy']):
             # start production after building has finished production
             queue_items.append(create_queue_item("CityProductionService", "startProduction", [
                                entity['id'], 1], entity['state']['next_state_transition_at'] + 1))
@@ -425,9 +442,15 @@ def init_game(sid_token, gateway_url):
     # print(research.keys())
     # print(json.dumps(research,indent=2))
 
+    foe_secret = get_secret()
+    print(foe_secret)
+
     state, queue_items = execute_task(
         create_queue_item("StartupService", "getData"), {
-            'sid_token': sid_token, 'gateway_url': gateway_url}
+            'sid_token': sid_token, 
+            'gateway_url': gateway_url, 
+            'foe_secret': environ.get('FOE_SECRET') 
+        }
     )
 
     _, tasks = execute_task(create_queue_item("CityMapService", "getCityMap", ["cultural_outpost"]), state)

@@ -17,6 +17,7 @@
 
 ## To do
 
+- Automatic FOE SECRET retrieval
 - Daily reward starting
 - Automate Tavern Upgrades
 - Allocate forge points over 5 to research
